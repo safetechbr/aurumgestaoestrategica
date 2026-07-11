@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { executarCruzamentoAutomatico } from "@/lib/matching-engine";
 
+export const dynamic = "force-dynamic";
+
 // Lista as transações que ainda precisam de categorização manual
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
