@@ -45,6 +45,10 @@ function ShareReviewContent() {
   const [erroModal, setErroModal] = useState<string | null>(null);
   const [criandoCat, setCriandoCat] = useState(false);
 
+  // Filtros e ordenação
+  const [busca, setBusca] = useState("");
+  const [ordenacao, setOrdenacao] = useState("data_desc");
+
   async function salvarCategoria() {
     if (!novaNome.trim()) {
       setErroModal("Por favor, digite o nome da categoria.");
@@ -135,6 +139,42 @@ function ShareReviewContent() {
     }
   }
 
+  // Filtragem
+  const transacoesFiltradas = transacoes.filter((t) => {
+    const termo = busca.toLowerCase().trim();
+    if (!termo) return true;
+    return (
+      t.descricaoOriginal.toLowerCase().includes(termo) ||
+      resumirDescricao(t.descricaoOriginal).toLowerCase().includes(termo)
+    );
+  });
+
+  // Ordenação
+  const transacoesExibidas = [...transacoesFiltradas].sort((a, b) => {
+    switch (ordenacao) {
+      case "data_asc":
+        return new Date(a.data).getTime() - new Date(b.data).getTime();
+      case "data_desc":
+        return new Date(b.data).getTime() - new Date(a.data).getTime();
+      case "valor_desc":
+        return Math.abs(b.valor) - Math.abs(a.valor);
+      case "valor_asc":
+        return Math.abs(a.valor) - Math.abs(b.valor);
+      case "tipo_receita":
+        if (a.tipo === b.tipo) return 0;
+        return a.tipo === "RECEITA" ? -1 : 1;
+      case "tipo_despesa":
+        if (a.tipo === b.tipo) return 0;
+        return a.tipo === "DESPESA" ? -1 : 1;
+      case "alfa_asc":
+        return a.descricaoOriginal.localeCompare(b.descricaoOriginal);
+      case "alfa_desc":
+        return b.descricaoOriginal.localeCompare(a.descricaoOriginal);
+      default:
+        return 0;
+    }
+  });
+
   if (!empresaId) {
     return (
       <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)" }}>
@@ -210,6 +250,87 @@ function ShareReviewContent() {
 
       {!carregando && transacoes.length > 0 && (
         <div>
+          {/* Barra de Filtros e Pesquisa */}
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            background: "var(--surface)",
+            padding: 16,
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border)",
+            marginBottom: 20
+          }}>
+            {/* Campo de Pesquisa */}
+            <div style={{ display: "flex", width: "100%", position: "relative" }}>
+              <input
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Pesquisar por palavra-chave..."
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  fontSize: 13.5,
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  color: "var(--text)",
+                  margin: 0
+                }}
+              />
+              {busca && (
+                <button
+                  onClick={() => setBusca("")}
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    padding: 4
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Ordenador */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>Ordenar por:</span>
+              <select
+                value={ordenacao}
+                onChange={(e) => setOrdenacao(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                  flex: 1,
+                  minWidth: 180,
+                  marginBottom: 0
+                }}
+              >
+                <option value="data_desc">📅 Data (Mais recente primeiro)</option>
+                <option value="data_asc">📅 Data (Mais antiga primeiro)</option>
+                <option value="valor_desc">💵 Valor (Maior valor primeiro)</option>
+                <option value="valor_asc">💵 Valor (Menor valor primeiro)</option>
+                <option value="tipo_receita">🟢 Tipo (Entradas primeiro)</option>
+                <option value="tipo_despesa">🔴 Tipo (Saídas primeiro)</option>
+                <option value="alfa_asc">🔤 Ordem Alfabética (A-Z)</option>
+                <option value="alfa_desc">🔤 Ordem Alfabética (Z-A)</option>
+              </select>
+            </div>
+          </div>
+
           <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
               Olá! Ajude-nos classificando estas transações:
@@ -222,12 +343,20 @@ function ShareReviewContent() {
               fontSize: 11,
               fontWeight: 700
             }}>
-              {transacoes.length} pendentes
+              {busca 
+                ? `${transacoesExibidas.length} correspondentes (de ${transacoes.length} pendentes)`
+                : `${transacoes.length} pendentes`
+              }
             </span>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {transacoes.map((t) => {
+          {transacoesExibidas.length === 0 ? (
+            <div className="card" style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>
+              Nenhum lançamento correspondente à pesquisa.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {transacoesExibidas.map((t) => {
               const categoriasDoTipo = categorias.filter((c) => c.tipo === t.tipo);
               const categoriasFrequentes = [...categoriasDoTipo]
                 .sort((a, b) => (b._count?.transacoes ?? 0) - (a._count?.transacoes ?? 0));
@@ -365,8 +494,9 @@ function ShareReviewContent() {
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    )}
 
       {!carregando && transacoes.length === 0 && (
         <div className="card" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: 32, textAlign: "center" }}>
