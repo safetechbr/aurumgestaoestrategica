@@ -12,6 +12,7 @@ export const CATEGORIAS_DESPESA = [
   "Alimentação",
   "Tarifas bancárias",
   "Empréstimos e financiamentos",
+  "Pagamento de Fatura (Saída)",
   "Outras despesas",
 ] as const;
 
@@ -20,6 +21,7 @@ export const CATEGORIAS_RECEITA = [
   "Prestação de serviços",
   "Aportes de sócios",
   "Empréstimos recebidos",
+  "Pagamento de Fatura (Entrada)",
   "Outras receitas",
 ] as const;
 
