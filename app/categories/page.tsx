@@ -150,8 +150,94 @@ export default function CategoriesPage() {
     }
   }
 
-  const receitas = categorias.filter((c) => c.tipo === "RECEITA");
-  const despesas = categorias.filter((c) => c.tipo === "DESPESA");
+  const receitasEmpresa = categorias.filter((c) => c.tipo === "RECEITA" && c.escopo !== "PESSOAL");
+  const despesasEmpresa = categorias.filter((c) => c.tipo === "DESPESA" && c.escopo !== "PESSOAL");
+  const receitasPessoal = categorias.filter((c) => c.tipo === "RECEITA" && c.escopo === "PESSOAL");
+  const despesasPessoal = categorias.filter((c) => c.tipo === "DESPESA" && c.escopo === "PESSOAL");
+
+  function renderCategoryRow(c: Categoria) {
+    return (
+      <div
+        key={c.id}
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "8px 10px",
+          borderBottom: "1px solid var(--border)",
+          background: editandoId === c.id ? "rgba(124, 92, 252, 0.05)" : "transparent",
+        }}
+      >
+        {editandoId === c.id ? (
+          <div style={{ display: "flex", gap: 6, flexGrow: 1, marginRight: 12 }}>
+            <input
+              value={editandoNome}
+              onChange={(e) => setEditandoNome(e.target.value)}
+              style={{ marginBottom: 0, padding: "4px 8px", fontSize: 12.5 }}
+            />
+            <select
+              value={editandoTipo}
+              onChange={(e) => setEditandoTipo(e.target.value as "RECEITA" | "DESPESA")}
+              style={{ marginBottom: 0, padding: "4px 8px", fontSize: 12.5, width: 85 }}
+            >
+              <option value="RECEITA">Receita</option>
+              <option value="DESPESA">Despesa</option>
+            </select>
+            <select
+              value={editandoEscopo}
+              onChange={(e) => setEditandoEscopo(e.target.value as "EMPRESA" | "PESSOAL")}
+              style={{ marginBottom: 0, padding: "4px 8px", fontSize: 12.5, width: 90 }}
+            >
+              <option value="EMPRESA">Empresa</option>
+              <option value="PESSOAL">Pessoal</option>
+            </select>
+          </div>
+        ) : (
+          <span style={{ fontWeight: 500, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+            {c.nome}
+          </span>
+        )}
+
+        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          {editandoId === c.id ? (
+            <>
+              <button
+                onClick={() => salvarEdicao(c.id)}
+                style={{ padding: 4, background: "var(--green)" }}
+                title="Salvar"
+              >
+                <Check size={12} />
+              </button>
+              <button
+                onClick={() => setEditandoId(null)}
+                style={{ padding: 4, background: "var(--surface-hover)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+                title="Cancelar"
+              >
+                <X size={12} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => iniciarEdicao(c)}
+                style={{ padding: 4, background: "var(--surface-hover)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+                title="Editar"
+              >
+                <Edit2 size={12} />
+              </button>
+              <button
+                onClick={() => excluirCategoria(c.id, c.nome)}
+                style={{ padding: 4, background: "rgba(239, 68, 68, 0.15)", color: "var(--red)" }}
+                title="Excluir"
+              >
+                <Trash2 size={12} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -270,7 +356,7 @@ export default function CategoriesPage() {
           </form>
         </div>
 
-        {/* Listagem */}
+        {/* Listagem em Duas Colunas (Empresarial vs Pessoal) */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {carregando && categorias.length === 0 ? (
             <div style={{ display: "flex", gap: 10, alignItems: "center", padding: 20, color: "var(--text-muted)" }}>
@@ -278,217 +364,81 @@ export default function CategoriesPage() {
               Carregando plano de contas...
             </div>
           ) : (
-            <>
-              {/* Seção Receitas */}
-              <div className="card" style={{ marginBottom: 0 }}>
-                <h2 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span>Receitas (Entradas)</span>
-                  <span className="badge green">{receitas.length}</span>
-                </h2>
-                {receitas.length === 0 ? (
-                  <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "10px 0 0" }}>Nenhuma categoria de receita cadastrada.</p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    {receitas.map((c) => (
-                      <div
-                        key={c.id}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "10px 12px",
-                          borderBottom: "1px solid var(--border)",
-                          background: editandoId === c.id ? "rgba(124, 92, 252, 0.05)" : "transparent",
-                        }}
-                      >
-                        {editandoId === c.id ? (
-                          <div style={{ display: "flex", gap: 8, flexGrow: 1, marginRight: 16 }}>
-                            <input
-                              value={editandoNome}
-                              onChange={(e) => setEditandoNome(e.target.value)}
-                              style={{ marginBottom: 0, padding: "6px 10px" }}
-                            />
-                            <select
-                              value={editandoTipo}
-                              onChange={(e) => setEditandoTipo(e.target.value as "RECEITA" | "DESPESA")}
-                              style={{ marginBottom: 0, padding: "6px 10px", width: 100 }}
-                            >
-                              <option value="RECEITA">Receita</option>
-                              <option value="DESPESA">Despesa</option>
-                            </select>
-                            <select
-                              value={editandoEscopo}
-                              onChange={(e) => setEditandoEscopo(e.target.value as "EMPRESA" | "PESSOAL")}
-                              style={{ marginBottom: 0, padding: "6px 10px", width: 100 }}
-                            >
-                              <option value="EMPRESA">Empresa</option>
-                              <option value="PESSOAL">Pessoal</option>
-                            </select>
-                          </div>
-                        ) : (
-                          <span style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
-                            {c.nome}
-                            <span style={{
-                              fontSize: 10,
-                              padding: "2px 6px",
-                              borderRadius: 4,
-                              fontWeight: 600,
-                              background: c.escopo === "PESSOAL" ? "rgba(245, 158, 11, 0.15)" : "rgba(124, 92, 252, 0.12)",
-                              color: c.escopo === "PESSOAL" ? "#F59E0B" : "var(--purple-light)"
-                            }}>
-                              {c.escopo === "PESSOAL" ? "Pessoal" : "Empresa"}
-                            </span>
-                          </span>
-                        )}
+            <div className="category-split-container">
+              {/* COLUNA ESQUERDA: EMPRESARIAL */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <h3 className="column-title business">
+                  <span>🏢 Empresarial</span>
+                </h3>
+                
+                {/* Receitas Empresariais */}
+                <div className="card" style={{ marginBottom: 0 }}>
+                  <h4 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: 0, fontSize: 13.5 }}>
+                    <span>Receitas (Entradas)</span>
+                    <span className="badge green">{receitasEmpresa.length}</span>
+                  </h4>
+                  {receitasEmpresa.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: 12.5, margin: "10px 0 0" }}>Nenhuma receita cadastrada.</p>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 8 }}>
+                      {receitasEmpresa.map((c) => renderCategoryRow(c))}
+                    </div>
+                  )}
+                </div>
 
-                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                          {editandoId === c.id ? (
-                            <>
-                              <button
-                                onClick={() => salvarEdicao(c.id)}
-                                style={{ padding: 6, background: "var(--green)" }}
-                                title="Salvar"
-                              >
-                                <Check size={14} />
-                              </button>
-                              <button
-                                onClick={() => setEditandoId(null)}
-                                style={{ padding: 6, background: "var(--surface-hover)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
-                                title="Cancelar"
-                              >
-                                <X size={14} />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => iniciarEdicao(c)}
-                                style={{ padding: 6, background: "var(--surface-hover)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
-                                title="Editar"
-                              >
-                                <Edit2 size={14} />
-                              </button>
-                              <button
-                                onClick={() => excluirCategoria(c.id, c.nome)}
-                                style={{ padding: 6, background: "rgba(239, 68, 68, 0.15)", color: "var(--red)" }}
-                                title="Excluir"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Despesas Empresariais */}
+                <div className="card" style={{ marginBottom: 0 }}>
+                  <h4 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: 0, fontSize: 13.5 }}>
+                    <span>Despesas (Saídas)</span>
+                    <span className="badge red">{despesasEmpresa.length}</span>
+                  </h4>
+                  {despesasEmpresa.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: 12.5, margin: "10px 0 0" }}>Nenhuma despesa cadastrada.</p>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 8 }}>
+                      {despesasEmpresa.map((c) => renderCategoryRow(c))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Seção Despesas */}
-              <div className="card" style={{ marginBottom: 0 }}>
-                <h2 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span>Despesas (Saídas)</span>
-                  <span className="badge red">{despesas.length}</span>
-                </h2>
-                {despesas.length === 0 ? (
-                  <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "10px 0 0" }}>Nenhuma categoria de despesa cadastrada.</p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    {despesas.map((c) => (
-                      <div
-                        key={c.id}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "10px 12px",
-                          borderBottom: "1px solid var(--border)",
-                          background: editandoId === c.id ? "rgba(124, 92, 252, 0.05)" : "transparent",
-                        }}
-                      >
-                        {editandoId === c.id ? (
-                          <div style={{ display: "flex", gap: 8, flexGrow: 1, marginRight: 16 }}>
-                            <input
-                              value={editandoNome}
-                              onChange={(e) => setEditandoNome(e.target.value)}
-                              style={{ marginBottom: 0, padding: "6px 10px" }}
-                            />
-                            <select
-                              value={editandoTipo}
-                              onChange={(e) => setEditandoTipo(e.target.value as "RECEITA" | "DESPESA")}
-                              style={{ marginBottom: 0, padding: "6px 10px", width: 100 }}
-                            >
-                              <option value="RECEITA">Receita</option>
-                              <option value="DESPESA">Despesa</option>
-                            </select>
-                            <select
-                              value={editandoEscopo}
-                              onChange={(e) => setEditandoEscopo(e.target.value as "EMPRESA" | "PESSOAL")}
-                              style={{ marginBottom: 0, padding: "6px 10px", width: 100 }}
-                            >
-                              <option value="EMPRESA">Empresa</option>
-                              <option value="PESSOAL">Pessoal</option>
-                            </select>
-                          </div>
-                        ) : (
-                          <span style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
-                            {c.nome}
-                            <span style={{
-                              fontSize: 10,
-                              padding: "2px 6px",
-                              borderRadius: 4,
-                              fontWeight: 600,
-                              background: c.escopo === "PESSOAL" ? "rgba(245, 158, 11, 0.15)" : "rgba(124, 92, 252, 0.12)",
-                              color: c.escopo === "PESSOAL" ? "#F59E0B" : "var(--purple-light)"
-                            }}>
-                              {c.escopo === "PESSOAL" ? "Pessoal" : "Empresa"}
-                            </span>
-                          </span>
-                        )}
+              {/* COLUNA DIREITA: PESSOAL */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <h3 className="column-title personal">
+                  <span>👤 Pessoal</span>
+                </h3>
+                
+                {/* Receitas Pessoais */}
+                <div className="card" style={{ marginBottom: 0 }}>
+                  <h4 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: 0, fontSize: 13.5 }}>
+                    <span>Receitas (Entradas)</span>
+                    <span className="badge green">{receitasPessoal.length}</span>
+                  </h4>
+                  {receitasPessoal.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: 12.5, margin: "10px 0 0" }}>Nenhuma receita cadastrada.</p>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 8 }}>
+                      {receitasPessoal.map((c) => renderCategoryRow(c))}
+                    </div>
+                  )}
+                </div>
 
-                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                          {editandoId === c.id ? (
-                            <>
-                              <button
-                                onClick={() => salvarEdicao(c.id)}
-                                style={{ padding: 6, background: "var(--green)" }}
-                                title="Salvar"
-                              >
-                                <Check size={14} />
-                              </button>
-                              <button
-                                onClick={() => setEditandoId(null)}
-                                style={{ padding: 6, background: "var(--surface-hover)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
-                                title="Cancelar"
-                              >
-                                <X size={14} />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => iniciarEdicao(c)}
-                                style={{ padding: 6, background: "var(--surface-hover)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
-                                title="Editar"
-                              >
-                                <Edit2 size={14} />
-                              </button>
-                              <button
-                                onClick={() => excluirCategoria(c.id, c.nome)}
-                                style={{ padding: 6, background: "rgba(239, 68, 68, 0.15)", color: "var(--red)" }}
-                                title="Excluir"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Despesas Pessoais */}
+                <div className="card" style={{ marginBottom: 0 }}>
+                  <h4 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: 0, fontSize: 13.5 }}>
+                    <span>Despesas (Saídas)</span>
+                    <span className="badge red">{despesasPessoal.length}</span>
+                  </h4>
+                  {despesasPessoal.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: 12.5, margin: "10px 0 0" }}>Nenhuma despesa cadastrada.</p>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 8 }}>
+                      {despesasPessoal.map((c) => renderCategoryRow(c))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>

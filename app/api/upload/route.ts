@@ -62,16 +62,36 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await db.transacao.createMany({
-      data: transacoes.map((t) => ({
+    const transacoesFormatadas = transacoes.map((t) => {
+      let valorFinal = t.valor;
+      let tipoFinal: "RECEITA" | "DESPESA" = t.valor >= 0 ? "RECEITA" : "DESPESA";
+
+      if (origem === "CARTAO_PESSOAL") {
+        // Nas faturas de cartão:
+        // Valores positivos são compras (saídas) -> devem ser gravados como negativos/DESPESA
+        // Valores negativos são créditos/pagamentos (entradas) -> devem ser gravados como positivos/RECEITA
+        if (t.valor > 0) {
+          valorFinal = -t.valor;
+          tipoFinal = "DESPESA";
+        } else {
+          valorFinal = Math.abs(t.valor);
+          tipoFinal = "RECEITA";
+        }
+      }
+
+      return {
         data: t.data,
         descricaoOriginal: t.descricaoOriginal,
-        valor: t.valor,
-        tipo: t.valor >= 0 ? "RECEITA" : "DESPESA",
-        origemCategoria: "NAO_CATEGORIZADO",
+        valor: valorFinal,
+        tipo: tipoFinal,
+        origemCategoria: "NAO_CATEGORIZADO" as const,
         empresaId,
         importacaoId: importacao.id,
-      })),
+      };
+    });
+
+    await db.transacao.createMany({
+      data: transacoesFormatadas,
     });
 
     // Executa o cruzamento automático de transferências PJ ⇆ PF

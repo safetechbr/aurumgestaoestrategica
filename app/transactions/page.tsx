@@ -31,12 +31,14 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<"TODAS" | "RECEITA" | "DESPESA">("TODAS");
   const [buscaTermo, setBuscaTermo] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("TODAS");
 
   // Estados de Edição Inline
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editandoData, setEditandoData] = useState("");
   const [editandoValor, setEditandoValor] = useState("");
   const [editandoCategoriaId, setEditandoCategoriaId] = useState("");
+  const [editandoCatTransacaoId, setEditandoCatTransacaoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedCompany) {
@@ -159,6 +161,32 @@ export default function TransactionsPage() {
     }
   }
 
+  // Salva apenas a categoria alterada rapidamente
+  async function salvarCategoriaRapido(t: Transacao, novaCategoriaId: string) {
+    try {
+      const resp = await fetch(`/api/transactions/${t.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          valor: t.valor,
+          data: formatarParaInputDate(t.data),
+          categoriaId: novaCategoriaId || null,
+        }),
+      });
+
+      if (resp.ok) {
+        const atualizada = await resp.json();
+        setTransacoes((prev) =>
+          prev.map((item) => (item.id === t.id ? { ...item, ...atualizada } : item))
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao salvar categoria rápida:", error);
+    } finally {
+      setEditandoCatTransacaoId(null);
+    }
+  }
+
   // Exclui transação
   async function excluirTransacao(id: string) {
     if (!confirm("Tem certeza que deseja excluir esta transação?")) return;
@@ -192,6 +220,15 @@ export default function TransactionsPage() {
     // 1. Filtrar por tipo
     if (filtroTipo !== "TODAS" && t.tipo !== filtroTipo) {
       return false;
+    }
+
+    // 2. Filtrar por categoria
+    if (filtroCategoria !== "TODAS") {
+      if (filtroCategoria === "NAO_CATEGORIZADA") {
+        if (t.categoriaId !== null) return false;
+      } else {
+        if (t.categoriaId !== filtroCategoria) return false;
+      }
     }
 
     // 2. Filtrar por termo de busca (case-insensitive)
@@ -416,6 +453,46 @@ export default function TransactionsPage() {
           </button>
         </div>
 
+        {/* Filtro de Categoria */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select
+            value={filtroCategoria}
+            onChange={(e) => setFiltroCategoria(e.target.value)}
+            style={{
+              margin: 0,
+              padding: "6px 12px",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "13px",
+              height: "38px",
+              color: "var(--text)",
+              cursor: "pointer",
+            }}
+          >
+            <option value="TODAS">Todas as categorias</option>
+            <option value="NAO_CATEGORIZADA">Não categorizadas</option>
+            <optgroup label="Empresarial">
+              {categorias
+                .filter((c) => c.escopo === "EMPRESA")
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+            </optgroup>
+            <optgroup label="Pessoal">
+              {categorias
+                .filter((c) => c.escopo === "PESSOAL")
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+            </optgroup>
+          </select>
+        </div>
+
         {/* Barra de Pesquisa */}
         <div style={{ position: "relative", flex: 1, minWidth: "200px", maxWidth: "400px" }}>
           <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
@@ -537,8 +614,50 @@ export default function TransactionsPage() {
                           </option>
                         ))}
                       </select>
+                    ) : editandoCatTransacaoId === t.id ? (
+                      <select
+                        value={t.categoriaId || ""}
+                        autoFocus
+                        onBlur={() => setEditandoCatTransacaoId(null)}
+                        onChange={(e) => salvarCategoriaRapido(t, e.target.value)}
+                        style={{ marginBottom: 0, padding: "4px 8px", fontSize: 12.5 }}
+                      >
+                        <option value="">Não categorizada</option>
+                        <optgroup label="Empresarial">
+                          {categorias
+                            .filter((c) => c.escopo === "EMPRESA")
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.nome}
+                              </option>
+                            ))}
+                        </optgroup>
+                        <optgroup label="Pessoal">
+                          {categorias
+                            .filter((c) => c.escopo === "PESSOAL")
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.nome}
+                              </option>
+                            ))}
+                        </optgroup>
+                      </select>
                     ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div 
+                        onClick={() => setEditandoCatTransacaoId(t.id)}
+                        style={{ 
+                          display: "inline-flex", 
+                          alignItems: "center", 
+                          gap: 8, 
+                          cursor: "pointer", 
+                          padding: "6px 10px", 
+                          borderRadius: 6, 
+                          transition: "all 0.15s ease",
+                          marginLeft: -10
+                        }}
+                        className="quick-edit-category"
+                        title="Clique para alterar a categoria rapidamente"
+                      >
                         <div
                           style={{
                             width: 8,
@@ -551,7 +670,16 @@ export default function TransactionsPage() {
                               : "var(--text-faint)",
                           }}
                         />
-                        <span style={{ fontSize: 13.5, color: t.categoria ? "var(--text)" : "var(--text-muted)" }}>
+                        <span 
+                          style={{ 
+                            fontSize: 13.5, 
+                            color: t.categoria ? "var(--text)" : "var(--text-muted)",
+                            borderBottom: "1px dashed transparent",
+                            transition: "border-color 0.15s ease",
+                            display: "inline-block"
+                          }}
+                          className="quick-edit-category-name"
+                        >
                           {t.categoria ? t.categoria.nome : "Não categorizada"}
                         </span>
                         {t.categoria && (

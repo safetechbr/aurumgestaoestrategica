@@ -16,6 +16,14 @@ export async function GET(req: NextRequest) {
 
   const transacoes = await db.transacao.findMany({
     where: { empresaId, origemCategoria: "NAO_CATEGORIZADO" },
+    include: {
+      importacao: {
+        select: {
+          nomeArquivo: true,
+          origem: true,
+        }
+      }
+    },
     orderBy: { data: "desc" },
   });
 

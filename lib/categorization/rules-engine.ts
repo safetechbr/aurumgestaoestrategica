@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { resumirDescricao } from "@/lib/csv-parser";
 
 export interface ResultadoRegra {
   categoriaId: string;
@@ -34,9 +35,13 @@ export function invalidarCacheRegras(empresaId: string) {
 // Aplica as regras de uma determinada empresa a uma descrição de transação.
 export async function aplicarRegras(descricao: string, empresaId: string): Promise<ResultadoRegra | null> {
   const regras = await carregarRegras(empresaId);
-  const descricaoUpper = descricao.toUpperCase();
+  const descricaoUpper = descricao.trim().toUpperCase();
+  const descResumidaUpper = resumirDescricao(descricao).trim().toUpperCase();
 
-  const encontrada = regras.find((r) => descricaoUpper.includes(r.padrao));
+  // O padrão precisa ser EXATAMENTE igual à descrição original ou à descrição resumida
+  const encontrada = regras.find((r) => 
+    descricaoUpper === r.padrao || descResumidaUpper === r.padrao
+  );
   if (!encontrada) return null;
 
   return {
@@ -47,20 +52,35 @@ export async function aplicarRegras(descricao: string, empresaId: string): Promi
 
 // Cria uma regra nova para a empresa, vinculando o padrão de texto à categoria.
 export async function criarRegraApartirDeManual(descricao: string, categoriaId: string, empresaId: string) {
-  const padrao = descricao.trim().split(/\s+/)[0].toUpperCase();
-
-  if (!padrao || padrao.length < 3) return; // padrão curto demais gera falso-positivo
-
-  await db.regraCategorizacao.upsert({
-    where: {
-      padrao_empresaId: {
-        padrao,
-        empresaId,
+  // Salva a descrição original (exata)
+  const padraoExato = descricao.trim().toUpperCase();
+  if (padraoExato && padraoExato.length >= 3) {
+    await db.regraCategorizacao.upsert({
+      where: {
+        padrao_empresaId: {
+          padrao: padraoExato,
+          empresaId,
+        },
       },
-    },
-    update: { categoriaId },
-    create: { padrao, categoriaId, empresaId },
-  });
+      update: { categoriaId },
+      create: { padrao: padraoExato, categoriaId, empresaId },
+    });
+  }
+
+  // Salva a descrição resumida
+  const padraoResumido = resumirDescricao(descricao).trim().toUpperCase();
+  if (padraoResumido && padraoResumido.length >= 3 && padraoResumido !== padraoExato) {
+    await db.regraCategorizacao.upsert({
+      where: {
+        padrao_empresaId: {
+          padrao: padraoResumido,
+          empresaId,
+        },
+      },
+      update: { categoriaId },
+      create: { padrao: padraoResumido, categoriaId, empresaId },
+    });
+  }
 
   invalidarCacheRegras(empresaId);
 }

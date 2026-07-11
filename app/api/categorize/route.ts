@@ -97,49 +97,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ETAPA 2 — fallback de IA, só para quem não bateu regra
+    // ETAPA 2 — Fallback de IA desativado. Conforme a regra de negócios solicitada pelo usuário:
+    // "se não for exatamente igual ao lançamento anterior cadastrado manualmente, não seja categorizado."
+    // Portanto, todas as transações que não bateram no histórico exato ou nas regras de exatidão vão direto para a revisão manual.
     let categorizadasPorIA = 0;
-    let enviadasParaRevisaoManual = 0;
-
-    if (semRegra.length > 0) {
-      const classificacoes = await classificarComIA(
-        semRegra.map((t) => ({ id: t.id, descricaoOriginal: t.descricaoOriginal, tipo: t.tipo }))
-      );
-
-      const categorias = await db.categoria.findMany({
-        where: { empresaId },
-      });
-      const mapaCategoriaPorNome = new Map(categorias.map((c) => [c.nome, c.id]));
-
-      for (const t of semRegra) {
-        const classificacao = classificacoes.find((c) => c.id === t.id);
-        const categoriaId = classificacao ? mapaCategoriaPorNome.get(classificacao.categoria) : null;
-
-        const confiancaAceitavel =
-          classificacao?.confianca === "alta" || classificacao?.confianca === "media";
-
-        if (classificacao && categoriaId && confiancaAceitavel) {
-          await db.transacao.update({
-            where: { id: t.id },
-            data: {
-              categoriaId,
-              origemCategoria: "IA",
-              confiancaIA: classificacao.confianca,
-            },
-          });
-          categorizadasPorIA++;
-        } else {
-          // fica NAO_CATEGORIZADO -> aparece na lista de revisão manual
-          if (classificacao) {
-            await db.transacao.update({
-              where: { id: t.id },
-              data: { confiancaIA: classificacao.confianca },
-            });
-          }
-          enviadasParaRevisaoManual++;
-        }
-      }
-    }
+    let enviadasParaRevisaoManual = semRegra.length;
 
     return NextResponse.json({
       totalProcessadas: transacoesPendentes.length,

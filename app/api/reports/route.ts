@@ -20,32 +20,39 @@ export async function GET(req: NextRequest) {
 
   const transacoes = await db.transacao.findMany({
     where,
-    include: { categoria: true },
+    include: { categoria: true, importacao: true },
   });
 
+  const isEmpresa = (origem: string) => origem !== "CONTA_PESSOAL" && origem !== "CARTAO_PESSOAL";
+  const isPessoal = (origem: string) => origem === "CONTA_PESSOAL" || origem === "CARTAO_PESSOAL";
+
   const totalReceitas = transacoes
-    .filter((t) => t.tipo === "RECEITA" && t.categoria?.nome !== "Transferência Sócio (Entrada)")
+    .filter((t) => t.tipo === "RECEITA" && isEmpresa(t.importacao.origem) && t.categoria?.nome !== "Transferência Sócio (Entrada)")
     .reduce((soma, t) => soma + t.valor, 0);
 
   const totalDespesas = transacoes
-    .filter((t) => t.tipo === "DESPESA" && t.categoria?.nome !== "Transferência Sócio (Saída)")
+    .filter((t) => t.tipo === "DESPESA" && isEmpresa(t.importacao.origem) && t.categoria?.nome !== "Transferência Sócio (Saída)")
     .reduce((soma, t) => soma + Math.abs(t.valor), 0);
 
-  // Segmentados por escopo (Empresarial vs Pessoal)
+  // Segmentados por escopo e conta de origem
   const totalReceitasEmpresa = transacoes
-    .filter((t) => t.tipo === "RECEITA" && (!t.categoria || t.categoria.escopo === "EMPRESA"))
+    .filter((t) => t.tipo === "RECEITA" && isEmpresa(t.importacao.origem) && t.categoria?.nome !== "Transferência Sócio (Entrada)")
     .reduce((soma, t) => soma + t.valor, 0);
 
   const totalDespesasEmpresa = transacoes
-    .filter((t) => t.tipo === "DESPESA" && (!t.categoria || t.categoria.escopo === "EMPRESA"))
+    .filter((t) => t.tipo === "DESPESA" && isEmpresa(t.importacao.origem) && (!t.categoria || t.categoria.escopo === "EMPRESA") && t.categoria?.nome !== "Transferência Sócio (Saída)")
+    .reduce((soma, t) => soma + Math.abs(t.valor), 0);
+
+  const confusaoPatrimonial = transacoes
+    .filter((t) => t.tipo === "DESPESA" && isEmpresa(t.importacao.origem) && t.categoria && t.categoria.escopo === "PESSOAL")
     .reduce((soma, t) => soma + Math.abs(t.valor), 0);
 
   const totalReceitasPessoal = transacoes
-    .filter((t) => t.tipo === "RECEITA" && t.categoria && t.categoria.escopo === "PESSOAL")
+    .filter((t) => t.tipo === "RECEITA" && isPessoal(t.importacao.origem))
     .reduce((soma, t) => soma + t.valor, 0);
 
   const totalDespesasPessoal = transacoes
-    .filter((t) => t.tipo === "DESPESA" && t.categoria && t.categoria.escopo === "PESSOAL")
+    .filter((t) => t.tipo === "DESPESA" && isPessoal(t.importacao.origem))
     .reduce((soma, t) => soma + Math.abs(t.valor), 0);
 
   const porCategoria = new Map<string, { categoria: string; tipo: string; escopo: string; total: number; quantidade: number }>();
@@ -116,6 +123,17 @@ export async function GET(req: NextRequest) {
     porDia.set(chaveDia, atualDia);
   }
 
+  const transacoesConfusas = transacoes
+    .filter((t) => t.tipo === "DESPESA" && isEmpresa(t.importacao.origem) && t.categoria && t.categoria.escopo === "PESSOAL")
+    .map((t) => ({
+      id: t.id,
+      data: t.data,
+      descricaoOriginal: t.descricaoOriginal,
+      valor: t.valor,
+      categoria: t.categoria?.nome,
+      tipo: t.tipo,
+    }));
+
   const listPorMes = Array.from(porMes.values()).sort((a, b) => a.mesAno.localeCompare(b.mesAno));
   const listPorDia = Array.from(porDia.values());
   const naoCategorizadas = transacoes.filter((t) => t.origemCategoria === "NAO_CATEGORIZADO").length;
@@ -132,11 +150,13 @@ export async function GET(req: NextRequest) {
       totalReceitasPessoal,
       totalDespesasPessoal,
       saldoPessoal: totalReceitasPessoal - totalDespesasPessoal,
+      confusaoPatrimonial,
       transacoesNaoCategorizadas: naoCategorizadas,
       totalTransacoes: transacoes.length,
     },
     porCategoria: Array.from(porCategoria.values()).sort((a, b) => b.total - a.total),
     porMes: listPorMes,
     porDia: listPorDia,
+    transacoesConfusas,
   });
 }

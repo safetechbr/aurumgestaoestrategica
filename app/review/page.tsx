@@ -11,12 +11,17 @@ interface Transacao {
   descricaoOriginal: string;
   valor: number;
   tipo: "RECEITA" | "DESPESA";
+  importacao?: {
+    nomeArquivo: string;
+    origem: string;
+  };
 }
 
 interface Categoria {
   id: string;
   nome: string;
   tipo: "RECEITA" | "DESPESA";
+  escopo?: "EMPRESA" | "PESSOAL";
   _count?: {
     transacoes: number;
   };
@@ -127,6 +132,8 @@ export default function ReviewPage() {
                 // Ordena por frequência (quantidade de transações associadas)
                 const categoriasFrequentes = [...categoriasDoTipo]
                   .sort((a, b) => (b._count?.transacoes ?? 0) - (a._count?.transacoes ?? 0));
+                const catsEmpresa = categoriasFrequentes.filter(c => c.escopo === "EMPRESA" || !c.escopo);
+                const catsPessoal = categoriasFrequentes.filter(c => c.escopo === "PESSOAL");
 
                 return (
                   <tr key={t.id}>
@@ -136,37 +143,52 @@ export default function ReviewPage() {
                       {t.descricaoOriginal !== resumirDescricao(t.descricaoOriginal) && (
                         <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>{t.descricaoOriginal}</div>
                       )}
+                      {t.importacao && (
+                        <div style={{ display: "inline-block", fontSize: 10.5, color: "var(--text-muted)", marginTop: 6, background: "var(--surface)", border: "1px solid var(--border)", padding: "2px 6px", borderRadius: 4 }}>
+                          📄 {t.importacao.nomeArquivo}
+                        </div>
+                      )}
                       
                       {/* Botões de atalho para categorias mais frequentes */}
                       {categoriasFrequentes.length > 0 && (
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                          {categoriasFrequentes.map((cat) => (
-                            <button
-                              key={cat.id}
-                              onClick={() => categorizar(t.id, cat.id)}
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: 10.5,
-                                background: "rgba(124, 92, 252, 0.08)",
-                                border: "1px solid var(--border)",
-                                color: "var(--purple-light)",
-                                borderRadius: 4,
-                                cursor: "pointer",
-                                fontWeight: 600,
-                                transition: "all 0.15s ease",
-                              }}
-                              onMouseOver={(e) => {
-                                e.currentTarget.style.background = "var(--purple)";
-                                e.currentTarget.style.color = "#fff";
-                              }}
-                              onMouseOut={(e) => {
-                                e.currentTarget.style.background = "rgba(124, 92, 252, 0.08)";
-                                e.currentTarget.style.color = "var(--purple-light)";
-                              }}
-                            >
-                              {cat.nome}
-                            </button>
-                          ))}
+                        <div className="category-split-container">
+                          {/* Coluna Esquerda: Empresarial */}
+                          <div className="category-column left">
+                            <span className="category-column-title">Empresarial</span>
+                            <div className="category-buttons-wrapper">
+                              {catsEmpresa.map((cat) => (
+                                <button
+                                  key={cat.id}
+                                  onClick={() => categorizar(t.id, cat.id)}
+                                  className="category-btn business"
+                                >
+                                  {cat.nome}
+                                </button>
+                              ))}
+                              {catsEmpresa.length === 0 && (
+                                <span style={{ fontSize: 10, color: "var(--text-faint)", fontStyle: "italic" }}>Nenhuma</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Coluna Direita: Pessoal */}
+                          <div className="category-column right">
+                            <span className="category-column-title">Pessoal</span>
+                            <div className="category-buttons-wrapper">
+                              {catsPessoal.map((cat) => (
+                                <button
+                                  key={cat.id}
+                                  onClick={() => categorizar(t.id, cat.id)}
+                                  className="category-btn personal"
+                                >
+                                  {cat.nome}
+                                </button>
+                              ))}
+                              {catsPessoal.length === 0 && (
+                                <span style={{ fontSize: 10, color: "var(--text-faint)", fontStyle: "italic" }}>Nenhuma</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </td>
@@ -176,9 +198,24 @@ export default function ReviewPage() {
                     <td>
                       <select defaultValue="" onChange={(e) => e.target.value && categorizar(t.id, e.target.value)}>
                         <option value="" disabled>Selecione...</option>
-                        {categoriasDoTipo.map((c) => (
-                          <option key={c.id} value={c.id}>{c.nome}</option>
-                        ))}
+                        {categoriasDoTipo.filter(c => c.escopo === "EMPRESA" || !c.escopo).length > 0 && (
+                          <optgroup label="Empresarial">
+                            {categoriasDoTipo
+                              .filter(c => c.escopo === "EMPRESA" || !c.escopo)
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>{c.nome}</option>
+                              ))}
+                          </optgroup>
+                        )}
+                        {categoriasDoTipo.filter(c => c.escopo === "PESSOAL").length > 0 && (
+                          <optgroup label="Pessoal">
+                            {categoriasDoTipo
+                              .filter(c => c.escopo === "PESSOAL")
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>{c.nome}</option>
+                              ))}
+                          </optgroup>
+                        )}
                       </select>
                     </td>
                   </tr>

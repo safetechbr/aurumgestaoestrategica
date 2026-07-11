@@ -11,6 +11,10 @@ interface Transacao {
   descricaoOriginal: string;
   valor: number;
   tipo: "RECEITA" | "DESPESA";
+  importacao?: {
+    nomeArquivo: string;
+    origem: string;
+  };
 }
 
 interface Categoria {
@@ -261,6 +265,11 @@ function ShareReviewContent() {
                     {t.descricaoOriginal !== resumirDescricao(t.descricaoOriginal) && (
                       <div style={{ fontSize: 11.5, color: "var(--text-faint)", marginTop: 2, wordBreak: "break-word" }}>
                         {t.descricaoOriginal}
+                      </div>
+                    )}
+                    {t.importacao && (
+                      <div style={{ display: "inline-block", fontSize: 10.5, color: "var(--text-muted)", marginTop: 6, background: "var(--surface)", border: "1px solid var(--border)", padding: "2px 6px", borderRadius: 4 }}>
+                        📄 {t.importacao.nomeArquivo}
                       </div>
                     )}
                   </div>

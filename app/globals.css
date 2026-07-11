@@ -357,3 +357,34 @@ tr:last-child td { border-bottom: none; }
   transform: translateY(-1px);
 }
 
+/* Quick Edit Category Styling */
+.quick-edit-category {
+  cursor: pointer;
+}
+.quick-edit-category:hover {
+  background: var(--surface-hover) !important;
+}
+.quick-edit-category:hover .quick-edit-category-name {
+  border-bottom: 1px dashed var(--text-muted) !important;
+}
+
+/* Category Page Split Column Styling */
+.column-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.column-title.business {
+  color: var(--purple-light);
+  border-color: rgba(124, 92, 252, 0.3);
+}
+.column-title.personal {
+  color: #F59E0B;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+

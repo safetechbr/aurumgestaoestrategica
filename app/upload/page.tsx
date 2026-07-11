@@ -114,8 +114,29 @@ export default function UploadPage() {
 
       <div className="card">
         <form onSubmit={handleSubmit}>
-          <label>Origem (ex: extrato_banco_x, cartao_y)</label>
-          <input value={origem} onChange={(e) => setOrigem(e.target.value)} placeholder="opcional" />
+          <label>Origem do Extrato (Tipo de Conta)</label>
+          <select
+            value={origem}
+            onChange={(e) => setOrigem(e.target.value)}
+            required
+            disabled={carregando}
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              fontSize: "13px",
+              color: "var(--text)",
+              marginBottom: 16,
+              cursor: "pointer"
+            }}
+          >
+            <option value="" disabled>Selecione a origem da conta...</option>
+            <option value="CONTA_EMPRESA">🏢 Extrato da Conta da Empresa (PJ)</option>
+            <option value="CONTA_PESSOAL">👤 Extrato da Conta Pessoal (PF)</option>
+            <option value="CARTAO_PESSOAL">💳 Fatura do Cartão de Crédito Pessoal (PF)</option>
+          </select>
 
           <label>Arquivo CSV</label>
           <input type="file" accept=".csv" onChange={(e) => setArquivo(e.target.files?.[0] ?? null)} required />
@@ -201,7 +222,12 @@ export default function UploadPage() {
                   <tr key={imp.id}>
                     <td style={{ fontWeight: 500 }}>{imp.nomeArquivo}</td>
                     <td>
-                      <span className="badge">{imp.origem || "Não informada"}</span>
+                      {imp.origem === "CONTA_EMPRESA" && <span className="badge purple">🏢 Conta Empresa (PJ)</span>}
+                      {imp.origem === "CONTA_PESSOAL" && <span className="badge amber">👤 Conta Pessoal (PF)</span>}
+                      {imp.origem === "CARTAO_PESSOAL" && <span className="badge" style={{ background: "rgba(59, 130, 246, 0.12)", color: "#3B82F6" }}>💳 Cartão Pessoal (PF)</span>}
+                      {!["CONTA_EMPRESA", "CONTA_PESSOAL", "CARTAO_PESSOAL"].includes(imp.origem) && (
+                        <span className="badge">{imp.origem || "Não informada"}</span>
+                      )}
                     </td>
                     <td>{dataImp}</td>
                     <td>{periodo}</td>
