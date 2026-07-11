@@ -8,13 +8,18 @@ export async function GET(req: NextRequest) {
   const dataInicio = searchParams.get("dataInicio");
   const dataFim = searchParams.get("dataFim");
 
+  const importacaoId = searchParams.get("importacaoId");
+  const onlyCategorized = searchParams.get("onlyCategorized");
+
   if (!empresaId) {
     return NextResponse.json({ erro: "Informe 'empresaId'." }, { status: 400 });
   }
 
   const where: any = {
     empresaId,
-    ...(dataInicio && dataFim
+    ...(importacaoId ? { importacaoId } : {}),
+    ...(onlyCategorized === "true" ? { categoriaId: { not: null } } : {}),
+    ...(!importacaoId && dataInicio && dataFim
       ? { data: { gte: new Date(dataInicio), lte: new Date(dataFim) } }
       : {}),
   };

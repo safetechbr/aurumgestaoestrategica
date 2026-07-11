@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useCompany } from "@/lib/CompanyContext";
+import { resumirDescricao } from "@/lib/csv-parser";
 
 export default function UploadPage() {
   const { selectedCompany } = useCompany();
@@ -16,13 +17,80 @@ export default function UploadPage() {
   const [importacoes, setImportacoes] = useState<any[]>([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
 
+  // Conferencia
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [autoCategorizadas, setAutoCategorizadas] = useState<any[]>([]);
+  const [carregandoAuto, setCarregandoAuto] = useState(false);
+
   useEffect(() => {
     if (selectedCompany) {
       carregarHistorico();
+      carregarCategorias();
     } else {
       setImportacoes([]);
+      setCategorias([]);
     }
   }, [selectedCompany]);
+
+  useEffect(() => {
+    if (resultado?.upload?.importacaoId) {
+      buscarAutoCategorizadas(resultado.upload.importacaoId);
+    } else {
+      setAutoCategorizadas([]);
+    }
+  }, [resultado]);
+
+  async function carregarCategorias() {
+    if (!selectedCompany) return;
+    try {
+      const resp = await fetch(`/api/categories?empresaId=${selectedCompany.id}`);
+      if (resp.ok) {
+        setCategorias(await resp.json());
+      }
+    } catch (error) {
+      console.error("Erro ao carregar categorias:", error);
+    }
+  }
+
+  async function buscarAutoCategorizadas(importacaoId: string) {
+    if (!selectedCompany) return;
+    setCarregandoAuto(true);
+    try {
+      const resp = await fetch(
+        `/api/transactions?empresaId=${selectedCompany.id}&importacaoId=${importacaoId}&onlyCategorized=true`
+      );
+      if (resp.ok) {
+        setAutoCategorizadas(await resp.json());
+      }
+    } catch (e) {
+      console.error("Erro ao buscar transações auto-categorizadas:", e);
+    } finally {
+      setCarregandoAuto(false);
+    }
+  }
+
+  async function alterarCategoriaAuto(t: any, novaCategoriaId: string) {
+    try {
+      const resp = await fetch(`/api/transactions/${t.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          valor: t.valor,
+          data: t.data,
+          categoriaId: novaCategoriaId || null,
+        }),
+      });
+
+      if (resp.ok) {
+        const atualizada = await resp.json();
+        setAutoCategorizadas((prev) =>
+          prev.map((item) => (item.id === t.id ? { ...item, ...atualizada } : item))
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar categoria rápida:", error);
+    }
+  }
 
   async function carregarHistorico() {
     if (!selectedCompany) return;
@@ -154,29 +222,125 @@ export default function UploadPage() {
       )}
 
       {resultado && (
-        <div className="card">
-          <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <CheckCircle2 size={18} color="var(--green)" />
-            Resultado
-          </h2>
-          <p style={{ color: "var(--text-muted)" }}>
-            {resultado.upload.transacoesImportadas} transações importadas ({resultado.upload.linhasComErro} linhas com erro).
-          </p>
-          <div className="stat-grid">
-            <div>
-              <div className="stat-value">{resultado.categorizacao.categorizadasPorRegra}</div>
-              <div className="stat-label">Categorizadas por regra</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="card" style={{ marginBottom: 0 }}>
+            <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <CheckCircle2 size={18} color="var(--green)" />
+              Resultado
+            </h2>
+            <p style={{ color: "var(--text-muted)" }}>
+              {resultado.upload.transacoesImportadas} transações importadas ({resultado.upload.linhasComErro} linhas com erro).
+            </p>
+            <div className="stat-grid" style={{ marginBottom: 16 }}>
+              <div>
+                <div className="stat-value">{resultado.categorizacao.categorizadasPorRegra}</div>
+                <div className="stat-label">Categorizadas por regra</div>
+              </div>
+              <div>
+                <div className="stat-value">{resultado.categorizacao.categorizadasPorIA}</div>
+                <div className="stat-label">Categorizadas por IA</div>
+              </div>
+              <div>
+                <div className="stat-value">{resultado.categorizacao.enviadasParaRevisaoManual}</div>
+                <div className="stat-label">Para revisão manual</div>
+              </div>
             </div>
-            <div>
-              <div className="stat-value">{resultado.categorizacao.categorizadasPorIA}</div>
-              <div className="stat-label">Categorizadas por IA</div>
-            </div>
-            <div>
-              <div className="stat-value">{resultado.categorizacao.enviadasParaRevisaoManual}</div>
-              <div className="stat-label">Para revisão manual</div>
-            </div>
+            <a className="btn" href="/review" style={{ display: "inline-block" }}>Ir para revisão manual</a>
           </div>
-          <a className="btn" href="/review">Ir para revisão manual</a>
+
+          {/* Seção de Conferencia de Auto-Categorizações */}
+          {carregandoAuto ? (
+            <div className="card" style={{ display: "flex", gap: 10, alignItems: "center", padding: 24, color: "var(--text-muted)", marginTop: 0 }}>
+              <Loader2 className="animate-spin" size={16} />
+              Carregando relatório de conferência...
+            </div>
+          ) : autoCategorizadas.length > 0 ? (
+            <div className="card" style={{ marginTop: 0 }}>
+              <h3 style={{ margin: "0 0 4px 0" }}>Conferência de Auto-Categorizações</h3>
+              <p className="subtitle" style={{ margin: "0 0 16px 0", fontSize: 13, color: "var(--text-muted)" }}>
+                As transações abaixo foram classificadas de forma automática. Se alguma estiver incorreta, ajuste o dropdown no final da linha.
+              </p>
+              
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border)", background: "rgba(255,255,255,0.01)" }}>
+                      <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12.5, color: "var(--text-muted)" }}>Data</th>
+                      <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12.5, color: "var(--text-muted)" }}>Descrição</th>
+                      <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 12.5, color: "var(--text-muted)" }}>Valor</th>
+                      <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12.5, color: "var(--text-muted)", width: 220 }}>Categoria</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {autoCategorizadas.map((t) => {
+                      const categoriasDoTipo = categorias.filter((c) => c.tipo === t.tipo);
+                      return (
+                        <tr key={t.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                          <td style={{ padding: "10px 12px", fontSize: 13, whiteSpace: "nowrap" }}>
+                            {new Date(t.data).toLocaleDateString("pt-BR")}
+                          </td>
+                          <td style={{ padding: "10px 12px" }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text)" }}>
+                              {resumirDescricao(t.descricaoOriginal)}
+                            </div>
+                            {t.descricaoOriginal !== resumirDescricao(t.descricaoOriginal) && (
+                              <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>{t.descricaoOriginal}</div>
+                            )}
+                          </td>
+                          <td style={{
+                            padding: "10px 12px",
+                            textAlign: "right",
+                            fontWeight: 700,
+                            fontSize: 13,
+                            whiteSpace: "nowrap"
+                          }} className={t.tipo === "RECEITA" ? "value-positive" : "value-negative"}>
+                            {t.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </td>
+                          <td style={{ padding: "10px 12px" }}>
+                            <select
+                              value={t.categoriaId || ""}
+                              onChange={(e) => alterarCategoriaAuto(t, e.target.value)}
+                              style={{
+                                padding: "6px 10px",
+                                fontSize: "12.5px",
+                                background: "var(--surface)",
+                                border: "1px solid var(--border)",
+                                borderRadius: "var(--radius-sm)",
+                                color: "var(--text)",
+                                width: "100%",
+                                marginBottom: 0,
+                                cursor: "pointer"
+                              }}
+                            >
+                              <option value="">Não categorizada</option>
+                              {categoriasDoTipo.filter(c => c.escopo === "EMPRESA" || !c.escopo).length > 0 && (
+                                <optgroup label="Empresarial">
+                                  {categoriasDoTipo
+                                    .filter(c => c.escopo === "EMPRESA" || !c.escopo)
+                                    .map((c) => (
+                                      <option key={c.id} value={c.id}>{c.nome}</option>
+                                    ))}
+                                </optgroup>
+                              )}
+                              {categoriasDoTipo.filter(c => c.escopo === "PESSOAL").length > 0 && (
+                                <optgroup label="Pessoal">
+                                  {categoriasDoTipo
+                                    .filter(c => c.escopo === "PESSOAL")
+                                    .map((c) => (
+                                      <option key={c.id} value={c.id}>{c.nome}</option>
+                                    ))}
+                                </optgroup>
+                              )}
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
