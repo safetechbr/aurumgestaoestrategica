@@ -1,0 +1,114 @@
+// Schema do banco de dados.
+// Depois de editar este arquivo, rode: npm run db:push
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Cada diagnóstico é feito para uma empresa.
+// Mesmo usando o sistema sozinho, isso já separa os dados por cliente
+// caso você decida analisar mais de uma empresa no futuro.
+model Empresa {
+  id               String        @id @default(cuid())
+  nome             String
+  cnpj             String?
+  regimeTributario String?
+  segmento         String?
+  criadoEm         DateTime      @default(now())
+  transacoes       Transacao[]
+  importacoes      Importacao[]
+  categorias       Categoria[]
+  regras           RegraCategorizacao[]
+}
+
+// Um registro por arquivo CSV importado (rastreabilidade: de onde veio cada transação)
+model Importacao {
+  id           String      @id @default(cuid())
+  nomeArquivo  String
+  origem       String      // ex: "extrato_banco_x", "cartao_credito_y"
+  empresaId    String
+  empresa      Empresa     @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  importadoEm  DateTime    @default(now())
+  transacoes   Transacao[]
+
+  dataInicio   DateTime?
+  dataFim      DateTime?
+}
+
+model Transacao {
+  id              String       @id @default(cuid())
+  data            DateTime
+  descricaoOriginal String     // texto exatamente como veio no CSV
+  valor           Float        // negativo = saída, positivo = entrada
+  tipo            TipoTransacao
+
+  categoriaId     String?
+  categoria       Categoria?   @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+
+  // como a categoria foi definida — importante para você confiar (ou não) no relatório
+  origemCategoria OrigemCategoria @default(NAO_CATEGORIZADO)
+  confiancaIA     String?      // "alta" | "media" | "baixa", preenchido só quando origemCategoria = IA
+
+  empresaId       String
+  empresa         Empresa      @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  importacaoId    String
+  importacao      Importacao   @relation(fields: [importacaoId], references: [id], onDelete: Cascade)
+
+  criadoEm        DateTime     @default(now())
+
+  @@index([empresaId])
+  @@index([categoriaId])
+  @@index([origemCategoria])
+}
+
+model Categoria {
+  id          String        @id @default(cuid())
+  nome        String
+  tipo        TipoTransacao // categorias de gasto são diferentes das de receita
+  escopo      EscopoCategoria @default(EMPRESA)
+  transacoes  Transacao[]
+  regras      RegraCategorizacao[]
+
+  empresaId   String
+  empresa     Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([nome, empresaId])
+}
+
+// O dicionário de regras. Cresce com o tempo: toda vez que você categoriza
+// uma transação manualmente, o sistema pode sugerir criar uma regra nova aqui.
+model RegraCategorizacao {
+  id           String     @id @default(cuid())
+  padrao       String     // trecho do texto a procurar na descrição, ex: "UBER", "IFOOD"
+  categoriaId  String
+  categoria    Categoria  @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  criadoEm     DateTime   @default(now())
+
+  empresaId    String
+  empresa      Empresa    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([padrao, empresaId])
+}
+
+enum TipoTransacao {
+  RECEITA
+  DESPESA
+}
+
+enum OrigemCategoria {
+  REGRA           // veio do dicionário de regras (confiável, custo zero)
+  IA              // veio do fallback de IA
+  MANUAL          // você categorizou manualmente
+  NAO_CATEGORIZADO // ainda não foi possível categorizar
+}
+
+enum EscopoCategoria {
+  EMPRESA
+  PESSOAL
+}
