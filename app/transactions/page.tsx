@@ -204,18 +204,7 @@ export default function TransactionsPage() {
     }
   }
 
-  // Cálculos de KPI para o mês ativo
-  const totalReceitasMes = transacoes
-    .filter((t) => t.tipo === "RECEITA")
-    .reduce((sum, t) => sum + t.valor, 0);
-
-  const totalDespesasMes = transacoes
-    .filter((t) => t.tipo === "DESPESA")
-    .reduce((sum, t) => sum + Math.abs(t.valor), 0);
-
-  const balancoMes = totalReceitasMes - totalDespesasMes;
-
-  // Filtragem local por tipo e termo de busca
+  // Filtragem local por tipo, categoria e termo de busca
   const transacoesFiltradas = transacoes.filter((t) => {
     // 1. Filtrar por tipo
     if (filtroTipo !== "TODAS" && t.tipo !== filtroTipo) {
@@ -231,7 +220,7 @@ export default function TransactionsPage() {
       }
     }
 
-    // 2. Filtrar por termo de busca (case-insensitive)
+    // 3. Filtrar por termo de busca (case-insensitive)
     if (buscaTermo.trim()) {
       const termo = buscaTermo.toLowerCase().trim();
       
@@ -246,6 +235,17 @@ export default function TransactionsPage() {
     return true;
   });
 
+  // Cálculos de KPI para o mês ativo (baseados nas transações filtradas)
+  const totalReceitasMes = transacoesFiltradas
+    .filter((t) => t.tipo === "RECEITA")
+    .reduce((sum, t) => sum + t.valor, 0);
+
+  const totalDespesasMes = transacoesFiltradas
+    .filter((t) => t.tipo === "DESPESA")
+    .reduce((sum, t) => sum + Math.abs(t.valor), 0);
+
+  const balancoMes = totalReceitasMes - totalDespesasMes;
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -257,7 +257,7 @@ export default function TransactionsPage() {
         <div className="stat-card">
           <div className="stat-icon blue"><Wallet size={20} /></div>
           <div>
-            <div className="stat-label">Saldo do Mês</div>
+            <div className="stat-label">Saldo Filtrado</div>
             <div className={`stat-value ${balancoMes >= 0 ? "positive" : "negative"}`}>
               {formatarMoeda(balancoMes)}
             </div>
@@ -267,7 +267,7 @@ export default function TransactionsPage() {
         <div className="stat-card">
           <div className="stat-icon green"><ArrowUpCircle size={20} /></div>
           <div>
-            <div className="stat-label">Receitas</div>
+            <div className="stat-label">Receitas Filtradas</div>
             <div className="stat-value positive">{formatarMoeda(totalReceitasMes)}</div>
           </div>
         </div>
@@ -275,7 +275,7 @@ export default function TransactionsPage() {
         <div className="stat-card">
           <div className="stat-icon red"><ArrowDownCircle size={20} /></div>
           <div>
-            <div className="stat-label">Despesas</div>
+            <div className="stat-label">Despesas Filtradas</div>
             <div className="stat-value negative">{formatarMoeda(totalDespesasMes)}</div>
           </div>
         </div>
@@ -283,8 +283,8 @@ export default function TransactionsPage() {
         <div className="stat-card">
           <div className="stat-icon teal"><Calendar size={20} /></div>
           <div>
-            <div className="stat-label">Lançamentos</div>
-            <div className="stat-value">{transacoes.length}</div>
+            <div className="stat-label">Lançamentos Filtrados</div>
+            <div className="stat-value">{transacoesFiltradas.length}</div>
           </div>
         </div>
       </div>
